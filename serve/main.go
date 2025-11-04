@@ -1,11 +1,11 @@
 package main
 
 import (
+	"log"
+	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
 	"litehell.info/caucalendar/crawl/crawl"
 )
 
@@ -50,20 +50,31 @@ func filterSchedule(allSchedules *[]crawl.CAUSchedule, fromParam string, toParam
 	return &filtered
 }
 
-func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func icsHandler(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	from := ""
+	to := ""
+	if len(qs["from"]) > 0 {
+		from = qs.Get("from")
+	}
+	if len(qs["to"]) > 0 {
+		to = qs.Get("to")
+	}
+
 	allSchedules := fetchData()
-	filtered := filterSchedule(allSchedules, request.QueryStringParameters["from"], request.QueryStringParameters["to"])
+	filtered := filterSchedule(allSchedules, from, to)
 	ics := GenerateIcs(filtered)
 
-	return events.APIGatewayProxyResponse{
-		Body:       ics,
-		StatusCode: 200,
-		Headers: map[string]string{
-			"Content-Type": "text/calendar",
-		},
-	}, nil
+	w.Header().Set("Content-Type", "text/calendar")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(ics))
 }
 
 func main() {
-	lambda.Start(HandleRequest)
+	http.HandleFunc("/ics", icsHandler)
+	port := ":8080"
+	log.Printf("Starting local server on %s (endpoint: /ics?from=YYYY&to=YYYY)", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("server failed: %v", err)
+	}
 }

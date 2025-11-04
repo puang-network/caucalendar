@@ -1,32 +1,23 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
+	"os"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"litehell.info/caucalendar/crawl/crawl"
 )
 
 func fetchData() *[]crawl.CAUSchedule {
-	ctx := context.TODO()
-	cfg, err := config.LoadDefaultConfig(ctx)
+	f, err := os.Open("data/events.json")
 	if err != nil {
-		panic(err)
+		result := make([]crawl.CAUSchedule, 0)
+		return &result
 	}
-
-	client := s3.NewFromConfig(cfg)
-	obj, err := client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String("calendar.puang.network"),
-		Key:    aws.String("events.json"),
-	})
+	defer f.Close()
 
 	result := make([]crawl.CAUSchedule, 0)
-
-	jsonDecoder := json.NewDecoder(obj.Body)
-	jsonDecoder.Decode(&result)
+	jsonDecoder := json.NewDecoder(f)
+	_ = jsonDecoder.Decode(&result)
 
 	return &result
 }
